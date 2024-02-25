@@ -1,6 +1,8 @@
 
 # godot-msgpack
 
+(Originally created by xtpor - Tintin Ho 2019)
+
 A MessagePack serializer implemented in pure GDScript
 
 - No dependency
