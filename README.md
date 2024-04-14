@@ -44,8 +44,8 @@ method
 
 # Limitation
 
-- Only support null, boolean, integer, float, PackedByteArray, string, array and
-  dictionary. No support for other data type like Vector2 and Vector3
+- Only support null, boolean, integer, float, PackedByteArray, string, array, dictionary
+  Vector2-4 and Vector2-4i.
 - No support for the ext datatype in MessagePack
 - Slow compare to the built-in binary serialization in godot
 

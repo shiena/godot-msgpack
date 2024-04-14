@@ -38,6 +38,15 @@
 #     encode function. The return value is similar to the one in the encode
 #     method
 
+# Codes for Vector ext types.
+# Vector2s are stored as fixext8, the rest are fixext16
+const VECTOR2_TYPE_CODE = 0x02
+const VECTOR3_TYPE_CODE = 0x03
+const VECTOR4_TYPE_CODE = 0x04
+const VECTOR2I_TYPE_CODE = 0x12
+const VECTOR3I_TYPE_CODE = 0x13
+const VECTOR4I_TYPE_CODE = 0x14
+
 static func encode(value):
 	var ctx = {error = OK, error_string = ""}
 	var buffer = StreamPeerBuffer.new()
@@ -104,6 +113,50 @@ static func _encode(buf, value, ctx):
 		TYPE_FLOAT:
 			buf.put_u8(0xca)
 			buf.put_float(value)
+
+		TYPE_VECTOR2:
+			buf.put_u8(0xd7) # fixext8 - extended 8-byte type
+			buf.put_u8(VECTOR2_TYPE_CODE) # 1-byte type code with two floats
+			buf.put_float(value.x) 
+			buf.put_float(value.y)
+
+		TYPE_VECTOR2I:
+			buf.put_u8(0xd7) # fixext8 - extended 8-byte type
+			buf.put_u8(VECTOR2I_TYPE_CODE) # 1-byte type code with two 32-bit ints; i-vectors use 32 bit ints
+			buf.put_32(value.x)
+			buf.put_32(value.y)
+
+		TYPE_VECTOR3:
+			buf.put_u8(0xd8) # fixext16 - extended 16-byte type
+			buf.put_u8(VECTOR3_TYPE_CODE)
+			buf.put_float(value.x)
+			buf.put_float(value.y)
+			buf.put_float(value.z)
+			buf.put_u32(0) # Wasted 4 bytes
+
+		TYPE_VECTOR3I:
+			buf.put_u8(0xd8) # fixext16 - extended 16-byte type
+			buf.put_u8(VECTOR3I_TYPE_CODE)
+			buf.put_32(value.x)
+			buf.put_32(value.y)
+			buf.put_32(value.z)
+			buf.put_u32(0) # Wasted 4 bytes
+
+		TYPE_VECTOR4:
+			buf.put_u8(0xd8) # fixext16 - extended 16-byte type
+			buf.put_u8(VECTOR4_TYPE_CODE)
+			buf.put_float(value.x)
+			buf.put_float(value.y)
+			buf.put_float(value.z)
+			buf.put_float(value.w)
+
+		TYPE_VECTOR4I:
+			buf.put_u8(0xd8) # fixext16 - extended 16-byte type
+			buf.put_u8(VECTOR4I_TYPE_CODE)
+			buf.put_32(value.x)
+			buf.put_32(value.y)
+			buf.put_32(value.z)
+			buf.put_32(value.w)
 
 		TYPE_STRING:
 			var bytes = value.to_utf8_buffer()
@@ -297,6 +350,48 @@ static func _decode(buffer, ctx):
 			return null
 
 		return buffer.get_double()
+
+	# Fixext8 (Vector2 and Vector2i)
+	elif head == 0xd7:
+		if buffer.get_size() - buffer.get_position() < 9:
+			ctx.error = FAILED
+			ctx.error_string = "not enough buffer for fixext8"
+			return null
+
+		var dtype = buffer.get_8()
+		if dtype == VECTOR2_TYPE_CODE:
+			return Vector2(buffer.get_float(), buffer.get_float())
+		elif dtype == VECTOR2I_TYPE_CODE:
+			return Vector2i(buffer.get_32(), buffer.get_32())
+		else:
+			ctx.error = FAILED
+			ctx.error_string = "unrecognized fixext8 type"
+			return null
+
+	# Fixext16 (Vector3, Vector3i, Vector4, Vector4i)
+	elif head == 0xd8:
+		if buffer.get_size() - buffer.get_position() < 17:
+			ctx.error = FAILED
+			ctx.error_string = "not enough buffer for fixext16"
+			return null
+
+		var dtype = buffer.get_8()
+		if dtype == VECTOR3_TYPE_CODE:
+			var result = Vector3(buffer.get_float(), buffer.get_float(), buffer.get_float())
+			buffer.get_u32()
+			return result
+		elif dtype == VECTOR3I_TYPE_CODE:
+			var result = Vector3i(buffer.get_32(), buffer.get_32(), buffer.get_32())
+			buffer.get_u32()
+			return result
+		elif dtype == VECTOR4_TYPE_CODE:
+			return Vector4(buffer.get_float(), buffer.get_float(), buffer.get_float(), buffer.get_float())
+		elif dtype == VECTOR4I_TYPE_CODE:
+			return Vector4i(buffer.get_32(), buffer.get_32(), buffer.get_32(), buffer.get_32())
+		else:
+			ctx.error = FAILED
+			ctx.error_string = "unrecognized fixext16 type"
+			return null
 
 	# String
 	elif (~head) & 0xa0 == 0:
